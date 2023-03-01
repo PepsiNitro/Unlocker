@@ -1,46 +1,48 @@
+var cacheName = 'orchache';
+var cacheAssets = [
+	'/',
+];
 
-            importScripts('https://storage.googleapis.com/workbox-cdn/releases/4.3.1/workbox-sw.js');
-            
-            const routing = workbox.routing;
-            const strategies = workbox.strategies;
-            
-            workbox.routing.registerRoute(
-            	/.(?:css|js|jsx|json)(?|$)/,
-            	new workbox.strategies.StaleWhileRevalidate({
-            		"cacheName": "assets",
-            		plugins: [
-            			new workbox.expiration.Plugin({
-            				maxEntries: 1000,
-            				maxAgeSeconds: 31536000
-            			})
-            		]
-            	})
-            );
-            
-            workbox.routing.registerRoute(
-            	/.(?:png|jpg|jpeg|gif|woff2)$/,
-            	new workbox.strategies.CacheFirst({
-            		"cacheName": "images",
-            		plugins: [
-            			new workbox.expiration.Plugin({
-            				maxEntries: 1000,
-            				maxAgeSeconds: 31536000
-            			})
-            		]
-            	})
-            );
-            
-            workbox.routing.registerRoute(
-            	/(\/)$/,
-            	new workbox.strategies.StaleWhileRevalidate({
-            		"cacheName": "startPage",
-            		plugins: [
-            			new workbox.expiration.Plugin({
-            				maxEntries: 1000,
-            				maxAgeSeconds: 31536000
-            			})
-            		]
-            	})
-            );
+// Call install Event
+self.addEventListener('install', e => {
+	// Wait until promise is finished
+	e.waitUntil(
+		caches.open(cacheName)
+		.then(cache => {
+			console.log(`Service Worker: Caching Files: ${cache}`);
+			cache.addAll(cacheAssets)
+				// When everything is set
+				.then(() => self.skipWaiting())
+		})
+	);
+})
 
-        
+
+
+
+
+
+// Call Fetch Event
+self.addEventListener('fetch', e => {
+	console.log('Service Worker: Fetching');
+	e.respondWith(
+		fetch(e.request)
+		.then(res => {
+			// The response is a stream and in order the browser
+			// to consume the response and in the same time the
+			// cache consuming the response it needs to be
+			// cloned in order to have two streams.
+			const resClone = res.clone();
+			// Open cache
+			caches.open(cacheName)
+				.then(cache => {
+					// Add response to cache
+					cache.put(e.request, resClone);
+				});
+			return res;
+		}).catch(
+			err => caches.match(e.request)
+			.then(res => res)
+		)
+	);
+});
